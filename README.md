@@ -50,4 +50,6 @@ of t3 and t4, second layer would be t7 and t8 and so on. The final input size is
 - DQN: The input state is technically a discrete input as there are finite combinations of states.
 However since the number of combination are huge, it is almost impossible to use traditional
 temporal difference method to solve the problem. While there are some other methods like discretization
-that can be used to 'discretize' the input state, here we use a neutral network as a functional approximator of the Q value. The DQN is composed of layers of convolutional inputs. The inputs are then flattened and then are connected by a fully connected layers. <B>Key Learnings: </B>
+that can be used to 'discretize' the input state, here we use a neutral network as a functional approximator of the Q value. The DQN is composed of layers of convolutional inputs. The inputs are then flattened and then are connected by a fully connected layers. <br>
+<B>Key Learnings: Pooling is not used. Unlike other image classification tasks where pooling is often used to send a 'summarized' signal of a certain region of the input to the next layer, here pooling might hinder the performance as it forces the network to send only representative signal to the next layer. Also while in most other cases a deeper and more complicated network will work better, here over complication can sometimes cause poor training performance. It is recommended that we choose a simpler network as simple as possible</B>
+- Prioritized Experience Replay: 
