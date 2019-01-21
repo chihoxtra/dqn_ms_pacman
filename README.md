@@ -55,7 +55,7 @@ that can be used to 'discretize' the input state, here we use a neutral network 
 <ul>Key Learnings:
 <li><B>Pooling is not used. Unlike other image classification tasks where pooling is often used to send a 'summarized' characteristics of a certain region of the input to the next layer, here pooling might hinder the performance as it forces the network to send only representative signal to the next layer. </B>
 <li><B>Also while in most other cases a deeper and more complicated network will work better, here over complication can sometimes cause poor training performance. It is recommended that we choose a simpler network as simple as possible</B>
-<ul>
+</ul>
 <li>Prioritized Experience Replay: The ordinary experience replay randomly pick samples from experience and learn from it. The problem is that not all experience are equally important to learning. Therefore Here we we give those experience with higher td error (as calculated by the difference between td target and td current) a higher priority. The probability is of samples being chosen are basically the td error magnitude normalized summation of all td errors magnitude across the entire experience memory. Note that 2 hyperparameters alpha and beta are applied here to adjust the 'degree of reliance on prioritized replay' and over weight adjustment when it comes to backward propagation.
 <div align="center">
  <img width="201" height="105" src="https://github.com/chihoxtra/dqn_ms_pacman/blob/master/per.png"></div>
