@@ -52,4 +52,10 @@ However since the number of combination are huge, it is almost impossible to use
 temporal difference method to solve the problem. While there are some other methods like discretization
 that can be used to 'discretize' the input state, here we use a neutral network as a functional approximator of the Q value. The DQN is composed of layers of convolutional inputs. The inputs are then flattened and then are connected by a fully connected layers. <br>
 <B>Key Learnings: Pooling is not used. Unlike other image classification tasks where pooling is often used to send a 'summarized' signal of a certain region of the input to the next layer, here pooling might hinder the performance as it forces the network to send only representative signal to the next layer. Also while in most other cases a deeper and more complicated network will work better, here over complication can sometimes cause poor training performance. It is recommended that we choose a simpler network as simple as possible</B>
-- Prioritized Experience Replay: 
+- Prioritized Experience Replay: The ordinary experience replay randomly pick same from experience and learn from it. Here we we give those experience with higher td error a priority of higher probability of being chosen. The probability is normalized td error magnitude across all entries in the experience method.
+<p align="center">
+ <img width="201" height="105" src="https://github.com/chihoxtra/dqn_ms_pacman/blob/master/per.png">
+</p>
+Here I tried to use 2 different data storage structure to store the memory:
+* deque from the collection packages. Pros: easy to understand and visualize. Cons. Could be slow when memory
+<B>- Key Learnings: To avoid zero probability for some experience, a small value is added to all td error so that they wont end up having a zero value. I personally find that this value cannot be too small. A reasonable value could be 1e-3. </B>
