@@ -66,9 +66,7 @@ that can be used to 'discretize' the input state, here we use a neutral network 
 <li>deque from the collection packages. Pros: easy to understand and visualize. Cons. Could be slow when memory.
 <li>TreeSum. Using tree is much faster but it requires extreme care when doing the implementation. Here a data structure Tree is used to store and sort and add td errors. Another data structure called data is used to store object of experience. TreeSum works faster.
 </ul>
-<ul>Key Learnings
-<li>
-<B>Key Learnings: To avoid zero probability for some experience, a small value is added to all td error so that they wont end up having a zero value. I personally find that this value cannot be too small. A reasonable value could be 1e-3. </B>
+<li><B>To avoid zero probability for some experience, a small value is added to all td error so that they wont end up having a zero value. I personally find that this value cannot be too small. A reasonable value could be 1e-3. </B>
 <li><b>Regarding TreeSum implementation, one key thing to notice is that earlier attempts of using recursion caused the programme to run exceeding the max recursion limit. Hence it is strongly suggested that the treesum function should be implemented using while loop instead of recursion.</b>
 <li><b>Since accessing the middle elements in deque is very slow, rotation functions are used to pop and append elements when needed. I am also using another array to store all td values for quicker calculation.</b>
 </ul>
