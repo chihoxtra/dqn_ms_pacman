@@ -42,3 +42,12 @@ avoid confusion to agent, we superimposed odd frame with even frame by taking th
 <p align="center">
  <img width="402" height="258" src="https://github.com/chihoxtra/dqn_ms_pacman/blob/master/oddevenframes.png">
 </p>
+- To allow the agent to understand the sequential relationship between frames, a stack of 4
+'combined frames' are stacked together as an input. That is first layer would be combined frame
+of t3 and t4, second layer would be t7 and t8 and so on. The final input size is 64 x 64 x 4.
+
+#### Technique Used and Key Learnings:
+- DQN: The input state is technically a discrete input as there are finite combinations of states.
+However since the number of combination are huge, it is almost impossible to use traditional
+temporal difference method to solve the problem. While there are some other methods like discretization
+that can be used to 'discretize' the input state, here we use a neutral network as a functional approximator of the Q value. The DQN is composed of layers of convolutional inputs. The inputs are then flattened and then are connected by a fully connected layers. <B>Key Learnings: </B>
