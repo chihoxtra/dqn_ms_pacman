@@ -2,7 +2,7 @@
 # DQN with Prioritized Experience Replay, Dual and Double Network on Atari Ms Pacman
 
 <p align="center"><a href="https://gym.openai.com/envs/MsPacman-v0/">
- <img width="342" height="450" src="mspacman.png></a>
+ <img width="342" height="450" src="https://github.com/chihoxtra/dqn_ms_pacman/blob/master/mspacman.png"></a>
 </p>
 
 This repository contains material related to Udacity's [Deep Reinforcement Learning Nanodegree](https://www.udacity.com/course/deep-reinforcement-learning-nanodegree--nd893) program.  
