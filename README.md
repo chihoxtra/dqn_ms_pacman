@@ -1,5 +1,5 @@
 
-## DQN with Prioritized Experience Replay, Dual and Double Network on Atari Ms Pacman
+# DQN with Prioritized Experience Replay, Dual and Double Network on Atari Ms Pacman
 
 <p align="center"><a href="https://gym.openai.com/envs/MsPacman-v0/">
  <img width="342" height="450" src="https://github.com/chihoxtra/dqn_ms_pacman/blob/master/mspacman.png"></a>
@@ -31,17 +31,17 @@ The following implementation were made according to the paper published by [Goog
 The observations inputs provided by the environment to the agent is in the form of
 a screenshot image (210, 160, 3) where 3 is the RGB channel. The following procedures were made
 in the 'Wrapper.py' files to pre-process the inputs:
-- Frame Skipping: The original game was a video game and so the FPS was relatively high. However chances between consecutive frames are not really that big. Thus here we are only taking input on every 4 frames. This will dramatically reduce number of inputs without diluting important signals from the inputs.
-- The image is converted to grayscale.
-- The image is rescaled to 64 x 64 to so that it can be trained faster in GPU as squared images utilize GPU resource better.
-- Here odd number frame are super imposed with even number frame. The reason for this is that
+* Frame Skipping: The original game was a video game and so the FPS was relatively high. However chances between consecutive frames are not really that big. Thus here we are only taking input on every 4 frames. This will dramatically reduce number of inputs without diluting important signals from the inputs.
+* The image is converted to grayscale.
+* The image is rescaled to 64 x 64 to so that it can be trained faster in GPU as squared images utilize GPU resource better.
+* Here odd number frame are super imposed with even number frame. The reason for this is that
 at the time Atari was created, there is a strict limitation on RAM. To save RAM, the game
 does not display all sprites in every frame. Take a look at the 2 consecutive frames below and you
 can notice the bottom left/bottom right power dots are not consistently existing in these frames. To
 avoid confusion to agent, we superimposed odd frame with even frame by taking the max values to create one "combined frame".
 <div align="center"><img width="402" height="258" src="https://github.com/chihoxtra/dqn_ms_pacman/blob/master/oddevenframes.png">
 </div><br>
-- To allow the agent to understand the sequential relationship between frames, a stack of 4
+* To allow the agent to understand the sequential relationship between frames, a stack of 4
 'combined frames' are stacked together as an input. That is first layer would be combined frame
 of t3 and t4, second layer would be t7 and t8 and so on. The final input size is 64 x 64 x 4.
 
