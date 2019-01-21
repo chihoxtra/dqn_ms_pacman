@@ -47,15 +47,30 @@ of t3 and t4, second layer would be t7 and t8 and so on. The final input size is
 </ul>
 
 #### Technique Used and Key Learnings:
-- DQN: The input state is technically a discrete input as there are finite combinations of states.
+<ul>
+<li>DQN: The input state is technically a discrete input as there are finite combinations of states.
 However since the number of combination are huge, it is almost impossible to use traditional
 temporal difference method to solve the problem. While there are some other methods like discretization
-that can be used to 'discretize' the input state, here we use a neutral network as a functional approximator of the Q value. The DQN is composed of layers of convolutional inputs. The inputs are then flattened and then are connected by a fully connected layers. <br>
-<B>Key Learnings: Pooling is not used. Unlike other image classification tasks where pooling is often used to send a 'summarized' signal of a certain region of the input to the next layer, here pooling might hinder the performance as it forces the network to send only representative signal to the next layer. Also while in most other cases a deeper and more complicated network will work better, here over complication can sometimes cause poor training performance. It is recommended that we choose a simpler network as simple as possible</B>
-- Prioritized Experience Replay: The ordinary experience replay randomly pick same from experience and learn from it. Here we we give those experience with higher td error a priority of higher probability of being chosen. The probability is normalized td error magnitude across all entries in the experience method.
-<p align="center">
- <img width="201" height="105" src="https://github.com/chihoxtra/dqn_ms_pacman/blob/master/per.png">
-</p>
-Here I tried to use 2 different data storage structure to store the memory:
-* deque from the collection packages. Pros: easy to understand and visualize. Cons. Could be slow when memory<br>
-<B>- Key Learnings: To avoid zero probability for some experience, a small value is added to all td error so that they wont end up having a zero value. I personally find that this value cannot be too small. A reasonable value could be 1e-3. </B>
+that can be used to 'discretize' the input state, here we use a neutral network as a functional approximator of the Q value. The DQN used here composed of 3 layers of convolutional layers followed by relu activation. The inputs are then flattened and then are connected by a fully connected layer to produce the action output (size of 9 in this case). <br>
+<ul>Key Learnings:
+<li><B>Pooling is not used. Unlike other image classification tasks where pooling is often used to send a 'summarized' characteristics of a certain region of the input to the next layer, here pooling might hinder the performance as it forces the network to send only representative signal to the next layer. </B>
+<li><B>Also while in most other cases a deeper and more complicated network will work better, here over complication can sometimes cause poor training performance. It is recommended that we choose a simpler network as simple as possible</B>
+<ul>
+<li>Prioritized Experience Replay: The ordinary experience replay randomly pick samples from experience and learn from it. The problem is that not all experience are equally important to learning. Therefore Here we we give those experience with higher td error (as calculated by the difference between td target and td current) a higher priority. The probability is of samples being chosen are basically the td error magnitude normalized summation of all td errors magnitude across the entire experience memory. Note that 2 hyperparameters alpha and beta are applied here to adjust the 'degree of reliance on prioritized replay' and over weight adjustment when it comes to backward propagation.
+<div align="center">
+ <img width="201" height="105" src="https://github.com/chihoxtra/dqn_ms_pacman/blob/master/per.png"></div>
+<ul>Key Learnings:
+<li>The calculation of weight adjustment is very tricky. And that beta is supposed to gradually increase to 1.0 when training converges.
+<li>Here I tried to use 2 different data storage structure to store the memory:
+<ul>
+<li>deque from the collection packages. Pros: easy to understand and visualize. Cons. Could be slow when memory.
+<li>TreeSum. Using tree is much faster but it requires extreme care when doing the implementation. Here a data structure Tree is used to store and sort and add td errors. Another data structure called data is used to store object of experience. TreeSum works faster.
+</ul>
+<ul>Key Learnings
+<li>
+<B>Key Learnings: To avoid zero probability for some experience, a small value is added to all td error so that they wont end up having a zero value. I personally find that this value cannot be too small. A reasonable value could be 1e-3. </B>
+<li><b>Regarding TreeSum implementation, one key thing to notice is that earlier attempts of using recursion caused the programme to run exceeding the max recursion limit. Hence it is strongly suggested that the treesum function should be implemented using while loop instead of recursion.</b>
+<li><b>Since accessing the middle elements in deque is very slow, rotation functions are used to pop and append elements when needed. I am also using another array to store all td values for quicker calculation.</b>
+</ul>
+
+</ul>
