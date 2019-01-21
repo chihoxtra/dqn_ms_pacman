@@ -5,22 +5,22 @@
  <img width="342" height="450" src="https://github.com/chihoxtra/dqn_ms_pacman/blob/master/mspacman.png"></a>
 </p>
 
-#### Project Summary
+### Project Summary
 
 This repository summarized humble learning experience on using a deep Q network to train an agent to play the classic atari Ms Pacman game. This project used the following techniques:
 * Prioritized Experience Replay
 * Double DQN
 * Dual Network
 
-#### About OpenAI Ms Pacman
+### About OpenAI Ms Pacman
 
 [Open AI](https://gym.openai.com/envs/#classic_control) provides many interesting environments for
 developers to work on: Ms Pacman is one of them. There are 2 versions of Ms Pacman environments:
 * provide the ram status (1 dimensional array) as observations
-* provide the raw screenshot (210 x 160 x 3) as observations
+* provide the raw screenshot (210 x 160 x 3) as observations <br>
 This project used the second environment.
 
-### Tutorials
+### Required
 
 The tutorials lead you through implementing various algorithms in reinforcement learning.  All of the code is in PyTorch (v0.4) and Python 3.
 
