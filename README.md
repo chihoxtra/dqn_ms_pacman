@@ -41,7 +41,7 @@ can notice the bottom left/bottom right power dots are not consistently existing
 avoid confusion to agent, we superimposed odd frame with even frame by taking the max values to create one "combined frame".
 <p align="center">
  <img width="402" height="258" src="https://github.com/chihoxtra/dqn_ms_pacman/blob/master/oddevenframes.png">
-</p>
+</p><br>
 - To allow the agent to understand the sequential relationship between frames, a stack of 4
 'combined frames' are stacked together as an input. That is first layer would be combined frame
 of t3 and t4, second layer would be t7 and t8 and so on. The final input size is 64 x 64 x 4.
@@ -57,5 +57,5 @@ that can be used to 'discretize' the input state, here we use a neutral network 
  <img width="201" height="105" src="https://github.com/chihoxtra/dqn_ms_pacman/blob/master/per.png">
 </p>
 Here I tried to use 2 different data storage structure to store the memory:
-* deque from the collection packages. Pros: easy to understand and visualize. Cons. Could be slow when memory
+* deque from the collection packages. Pros: easy to understand and visualize. Cons. Could be slow when memory<br>
 <B>- Key Learnings: To avoid zero probability for some experience, a small value is added to all td error so that they wont end up having a zero value. I personally find that this value cannot be too small. A reasonable value could be 1e-3. </B>
