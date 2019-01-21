@@ -1,13 +1,24 @@
 
-# DQN with Prioritized Experience Replay, Dual and Double Network on Atari Ms Pacman
+## DQN with Prioritized Experience Replay, Dual and Double Network on Atari Ms Pacman
 
 <p align="center"><a href="https://gym.openai.com/envs/MsPacman-v0/">
  <img width="342" height="450" src="https://github.com/chihoxtra/dqn_ms_pacman/blob/master/mspacman.png"></a>
 </p>
 
-This repository contains material related to Udacity's [Deep Reinforcement Learning Nanodegree](https://www.udacity.com/course/deep-reinforcement-learning-nanodegree--nd893) program.  
+#### Project Summary
 
-## Table of Contents
+This repository summarized humble learning experience on using a deep Q network to train an agent to play the classic atari Ms Pacman game. This project used the following techniques:
+* Prioritized Experience Replay
+* Double DQN
+* Dual Network
+
+#### About OpenAI Ms Pacman
+
+[Open AI](https://gym.openai.com/envs/#classic_control) provides many interesting environments for
+developers to work on: Ms Pacman is one of them. There are 2 versions of Ms Pacman environments:
+* provide the ram status (1 dimensional array) as observations
+* provide the raw screenshot (210 x 160 x 3) as observations
+This project used the second environment.
 
 ### Tutorials
 
