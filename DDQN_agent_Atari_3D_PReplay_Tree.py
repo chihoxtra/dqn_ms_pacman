@@ -99,7 +99,7 @@ class Agent():
         s, ns = s.float().to(device), ns.float().to(device) #to satisfy the network requirement
         with torch.no_grad(): #for sure no grad for this part
 
-            ns_target_vals = target_net(ns.float().to(device))
+            ns_target_vals = target_net(ns)
 
             #0:the value, 1: argmax, unsqueeze to match the side of TD current
             if USE_DOUBLE:
@@ -121,7 +121,7 @@ class Agent():
                     ns_target_max_val = torch.gather(ns_target_vals_ln, 1, ns_target_max_arg_tn)
             else:
                 # use target network only for value and argmax
-                ns_target_vals_tn = target_net(ns.float().to(device))
+                ns_target_vals_tn = target_net(ns)
                 ns_target_max_val = ns_target_vals_tn.max(dim=1)[0].unsqueeze(dim=-1)
 
             assert(ns_target_max_val.requires_grad == False)
@@ -131,13 +131,13 @@ class Agent():
         ###### TD CURRENT #######
         if isLearning: # if it is under learning mode need backprop
             local_net.train()
-            td_currents_vals = local_net(s.float().to(device))
+            td_currents_vals = local_net(s)
 
             td_currents = torch.gather(td_currents_vals, 1, a.to(device))
         else:
             local_net.eval()
             with torch.no_grad():
-                td_currents_vals = local_net(s.to(device))
+                td_currents_vals = local_net(s)
 
                 td_currents = torch.gather(td_currents_vals, 1, a.to(device))
 
