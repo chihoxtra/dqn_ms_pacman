@@ -96,7 +96,7 @@ class Agent():
     def get_TD_values(self, local_net, target_net, s, a, r, ns, d, isLearning=False):
 
         ###### TD TARGET #######
-        s, ns = s.float(), ns.float() #to satisfy the network requirement
+        s, ns = s.float().to(device), ns.float().to(device) #to satisfy the network requirement
         with torch.no_grad(): #for sure no grad for this part
 
             ns_target_vals = target_net(ns.float().to(device))
@@ -105,19 +105,17 @@ class Agent():
             if USE_DOUBLE:
                 if np.random.rand() > 0.5:
                     # use target network to get value
-                    ns_target_vals_tn = target_net(ns.float().to(device))
+                    ns_target_vals_tn = target_net(ns)
                     # use local network to get argmax
-                    ns_target_vals_ln = local_net(ns.float().to(device))
-                    ns_target_max_arg_ln = ns_target_vals_ln.max(dim=1)[1].unsqueeze(dim=-1)
+                    ns_target_max_arg_ln = local_net(ns).max(dim=1)[1].unsqueeze(dim=-1)
 
                     #use local network argmax and target network value
                     ns_target_max_val = torch.gather(ns_target_vals_tn, 1, ns_target_max_arg_ln)
                 else:
                     # use local network to get value
-                    ns_target_vals_ln = local_net(ns.float().to(device))
+                    ns_target_vals_ln = local_net(ns)
                     # use target network to get argmax
-                    ns_target_vals_tn = target_net(ns.float().to(device))
-                    ns_target_max_arg_tn = ns_target_vals_tn.max(dim=1)[1].unsqueeze(dim=-1)
+                    ns_target_max_arg_tn = target_net(ns).max(dim=1)[1].unsqueeze(dim=-1)
 
                     #use target network argmax and local network value
                     ns_target_max_val = torch.gather(ns_target_vals_ln, 1, ns_target_max_arg_tn)

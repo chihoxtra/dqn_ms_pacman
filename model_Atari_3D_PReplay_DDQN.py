@@ -83,8 +83,8 @@ class QNetwork(nn.Module):
             v = F.relu(self.fc1v(conv_out))
 
             v = self.fc3v(v)
-
-            a_adj = a - a.mean()
+            #Q = V + (a-1/A*a')
+            a_adj = a - a.mean(dim=1, keepdim=True)
 
             out = v + a_adj
         else:
