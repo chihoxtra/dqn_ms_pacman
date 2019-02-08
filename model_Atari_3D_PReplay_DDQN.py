@@ -37,11 +37,13 @@ class QNetwork(nn.Module):
 
         ################### END OF COMMON NETWORK CNN #################
 
+        self.flattened = 64*7*7
+
         ################# ACTION  #################
 
         # 64 outputs * the 7*7 filtered/pooled map size
         # for actions
-        self.fc1a = nn.Linear(64*7*7, 512)
+        self.fc1a = nn.Linear(self.flattened, 512)
 
         #self.fc2a = nn.Linear(128, 32)
 
@@ -49,7 +51,7 @@ class QNetwork(nn.Module):
 
         ################# VALUE  #################
         # for state values
-        self.fc1v = nn.Linear(64*7*7, 512)
+        self.fc1v = nn.Linear(self.flattened, 512)
 
         self.fc3v = nn.Linear(512, 1)
 
@@ -83,10 +85,9 @@ class QNetwork(nn.Module):
             v = F.relu(self.fc1v(conv_out))
 
             v = self.fc3v(v)
-            #Q = V + (a-1/A*a')
-            a_adj = a - a.mean(dim=1, keepdim=True)
 
-            out = v + a_adj
+            #Q = V + (a-1/A*a')
+            out = v + (a - a.mean(dim=1, keepdim=True))
         else:
             out = a
 

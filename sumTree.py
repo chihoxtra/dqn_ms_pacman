@@ -102,7 +102,9 @@ tree_index  0 0  0  We fill the leaves from left to right
             self.tree[leaf_index] += change
 
     """
-    Here we get the leaf_index, priority value of that leaf and experience associated with that index
+    Here we get the leaf_index, priority value of that leaf and experience associated
+    with that value. The value is the subtotal or total td_score that adds up to that
+    level. 
     """
     def get_leaf(self, v):
         """

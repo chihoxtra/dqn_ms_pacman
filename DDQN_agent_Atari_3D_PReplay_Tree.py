@@ -2,7 +2,6 @@ import numpy as np
 import random
 import copy
 import torch
-import torch.nn.functional as F
 import torch.optim as optim
 from collections import namedtuple, deque
 from sumTree import SumTree
@@ -25,20 +24,25 @@ This version is relatively more stable:
 BUFFER_SIZE = int(1e5)        # replay buffer size
 BATCH_SIZE = 64               # minibatch size
 REPLAY_MIN_SIZE = int(1e5)    # min len of memory before replay start #int(5e3)
-GAMMA = 0.99                  # discount factor
+GAMMA = 0.95                  # discount factor
 TAU = 1e-3                    # for soft update of target parameters
-LR = 2.0e-4                   # learning rate #25e4
+LR = 1e-5                     # learning rate #25e4
+LR_DECAY = True               # decay learning rate?
+LR_DECAY_START = int(4e5)     # number of steps before lr decay starts
+LR_DECAY_STEP = int(5e3)      # LR decay steps
+LR_DECAY_GAMMA = 0.999        # LR decay gamma
 UPDATE_EVERY = int(1e3)       # how often to update the network
-TD_ERROR_EPS = 25e-4          # make sure TD error is not zero
+TD_ERROR_EPS = 1e-3           # make sure TD error is not zero
 P_REPLAY_ALPHA = 0.7          # balance between prioritized and random sampling #0.7
 P_REPLAY_BETA = 0.5           # adjustment on weight update #0.5
+P_BETA_DELTA = 1e-6           # beta increment per sampling
 #LEARNING_LOOP = 2            # number of learning cycle per step
 USE_DUEL = True               # use duel network? V and A?
 USE_DOUBLE = True             # use double network to select TD value?
 REWARD_SCALE = False          # use reward clipping?
 ERROR_CLIP = True             # clip error
 ERROR_MAX = 1.0               # max value of error if do clipping
-ERROR_INIT = False            # set an init value for error
+ERROR_INIT = True             # set an init value for error
 USE_TREE = True               # use tree for memory
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -46,7 +50,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class Agent():
     """Interacts with and learns from the environment."""
 
-    def __init__(self, state_size, action_size, seed):
+    def __init__(self, state_size, action_size, seed=0):
         """Initialize an Agent object.
 
         Params
@@ -60,6 +64,7 @@ class Agent():
         self.seed = random.seed(seed)
 
         # object reference to constant values:
+        self.lr_decay = LR_DECAY
         self.p_replay_alpha = P_REPLAY_ALPHA
         self.p_replay_beta = P_REPLAY_BETA
         self.reward_scale = REWARD_SCALE
@@ -68,19 +73,26 @@ class Agent():
         # Q-Network
         self.qnetwork_local = QNetwork(state_size, action_size, seed, USE_DUEL).to(device)
         self.qnetwork_target = QNetwork(state_size, action_size, seed, USE_DUEL).to(device)
-        self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=LR)
+        #self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=LR)
+        self.optimizer = optim.RMSprop(self.qnetwork_local.parameters(), lr=LR)
+        #self.optimizer = optim.SGD(self.qnetwork_local.parameters(), lr=LR, momentum=0.9)
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer,
+                                                   LR_DECAY_STEP,
+                                                   gamma=LR_DECAY_GAMMA)
 
         # Replay memory
         self.memory = ReplayBuffer(BUFFER_SIZE, BATCH_SIZE, TD_ERROR_EPS, seed,
                                    P_REPLAY_ALPHA, REWARD_SCALE, ERROR_CLIP,
                                    ERROR_MAX, ERROR_INIT, USE_TREE)
 
+        # Initialize time step (for updating every UPDATE_EVERY steps and others)
+        self.t_step = 0
         # keep track on whether training has started
         self.isTraining = False
 
-        # Initialize time step (for updating every UPDATE_EVERY steps and others)
-        self.t_step = 0
+        self.print_params()
 
+    def print_params(self):
         print("current device: {}".format(device))
         print("use duel network (a and v): {}".format(USE_DUEL))
         print("use double network: {}".format(USE_DOUBLE))
@@ -88,7 +100,8 @@ class Agent():
         print("use error clipping: {}".format(ERROR_CLIP))
         print("buffer size: {}".format(BUFFER_SIZE))
         print("batch size: {}".format(BATCH_SIZE))
-        print("learning rate: {}".format(LR))
+        print("initial learning rate: {}".format(LR))
+        print("learing rate decay: {}".format(LR_DECAY))
         print("min replay size: {}".format(REPLAY_MIN_SIZE))
         print("target network update: {}".format(UPDATE_EVERY))
         print("optimizer: {}".format(self.optimizer))
@@ -96,7 +109,7 @@ class Agent():
     def get_TD_values(self, local_net, target_net, s, a, r, ns, d, isLearning=False):
 
         ###### TD TARGET #######
-        s, ns = s.float().to(device), ns.float().to(device) #to satisfy the network requirement
+        s, ns, a = s.float().to(device), ns.float().to(device), a.to(device)
         with torch.no_grad(): #for sure no grad for this part
 
             ns_target_vals = target_net(ns)
@@ -121,8 +134,7 @@ class Agent():
                     ns_target_max_val = torch.gather(ns_target_vals_ln, 1, ns_target_max_arg_tn)
             else:
                 # use target network only for value and argmax
-                ns_target_vals_tn = target_net(ns)
-                ns_target_max_val = ns_target_vals_tn.max(dim=1)[0].unsqueeze(dim=-1)
+                ns_target_max_val = target_net(ns).max(dim=1)[0].unsqueeze(dim=-1)
 
             assert(ns_target_max_val.requires_grad == False)
 
@@ -133,13 +145,13 @@ class Agent():
             local_net.train()
             td_currents_vals = local_net(s)
 
-            td_currents = torch.gather(td_currents_vals, 1, a.to(device))
+            td_currents = torch.gather(td_currents_vals, 1, a)
         else:
             local_net.eval()
             with torch.no_grad():
                 td_currents_vals = local_net(s)
 
-                td_currents = torch.gather(td_currents_vals, 1, a.to(device))
+                td_currents = torch.gather(td_currents_vals, 1, a)
 
         local_net.train() #resume training for local network
 
@@ -176,13 +188,15 @@ class Agent():
 
         # gradually increase beta to 1 until end of epoche
         if self.isTraining:
-            self.p_replay_beta = P_REPLAY_BETA+((1-P_REPLAY_BETA)/ep_prgs[1])*ep_prgs[0]
+            self.p_replay_beta = min(1.0, self.p_replay_beta + P_BETA_DELTA)
+            #self.p_replay_beta = P_REPLAY_BETA+((1-P_REPLAY_BETA)/ep_prgs[1])*ep_prgs[0]
 
         # If enough samples are available in memory, get random subset and learn
-        if self.t_step >= REPLAY_MIN_SIZE-1:
+        if self.t_step >= REPLAY_MIN_SIZE:
             # training starts!
             if self.isTraining == False:
-                print("training starts!                            \r")
+                self.print_params()
+                print("Prefetch completed. Training starts!                         \r")
                 self.isTraining = True
 
             #for i in range(LEARNING_LOOP): #greedy learning loop
@@ -219,6 +233,10 @@ class Agent():
             action = random.choice(np.arange(self.action_size))
         return action
 
+    def huber_loss(self, td_currents, td_targets, grad_clip_max=1):
+        abs_err = torch.abs(td_currents - td_targets)**2
+        clipped_err = torch.clamp(abs_err, min=0, max=grad_clip_max)
+        return 0.5 * clipped_err**2 + grad_clip_max * (abs_err - clipped_err)
 
     def learn(self, experiences, weight, ind, gamma):
         """Update value parameters using given batch of experience tuples.
@@ -239,9 +257,15 @@ class Agent():
                                                      dones,
                                                      isLearning=True)
 
-        squared_err = torch.abs(td_currents - td_targets)**2
-        loss = weight * squared_err
+        #squared_err = torch.abs(td_currents - td_targets)**2
+        #print(weight.mean(), squared_err.mean())
+        clipped_loss = self.huber_loss(td_currents, td_targets)
+        #print(weight.mean(), clipped_loss.mean())
+        loss = weight * clipped_loss
         loss = loss.mean()
+
+        if self.lr_decay and self.t_step >= LR_DECAY_START:
+            self.scheduler.step() #decay lr
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -362,7 +386,8 @@ class ReplayBuffer:
         ### checking memory and memory index are sync ###
         #tmp_memory = copy.deepcopy(self.memory)
 
-        for i in range(len(index)):
+        i = 0 #while loop
+        while i < len(index):
             if self.useTree:
                 #data_index = index[i]
                 #tree_index = data_index + self.buffer_size - 1
@@ -382,6 +407,8 @@ class ReplayBuffer:
                 ### memory index ###
                 self.memory_index[index[i]] = td_i
 
+            i += 1 #increment
+
                 # make sure its updated
                 # assert(self.memory[index[i]].td_error == self.memory_index[index[i]])
             ### checking memory and memory index are sync ###
@@ -392,7 +419,6 @@ class ReplayBuffer:
             #    else:
             #        print(self.memory[i].td_error)
             #        assert(tmp_memory[i].td_error == self.memory[i].td_error)
-
 
 
     def sample(self, p_replay_beta):
@@ -440,7 +466,9 @@ class ReplayBuffer:
         ### checker: the mean of selected TD errors should be greater than
         ### checking: the mean of selected TD err are higher than memory average
         if p_replay_beta > 0:
-            assert(np.mean(self.memory_index[sample_ind]) >= np.mean(self.memory_index[:l]))
+            if np.mean(self.memory_index[sample_ind]) < np.mean(self.memory_index[:l]):
+                print(np.mean(self.memory_index[sample_ind]),
+                      np.mean(self.memory_index[:l]))
 
         #weight = (np.array(selected_td_p) * l) ** -p_replay_beta
         #max_weight = (np.min(selected_td_p) * self.batch_size) ** -p_replay_beta
@@ -453,24 +481,19 @@ class ReplayBuffer:
         return (states, actions, rewards, next_states, dones), weight, sample_ind
 
     def sample_tree(self, p_replay_beta):
-        n = self.batch_size
         # Create a sample array that will contains the minibatch
         e_s, e_a, e_r, e_n, e_d = [], [], [], [], []
 
         sample_ind = np.empty((self.batch_size,), dtype=np.int32)
+        sampled_td_score = np.empty((self.batch_size, 1))
         weight = np.empty((self.batch_size, 1))
 
         # Calculate the priority segment
         # Here, as explained in the paper, we divide the Range[0, ptotal] into n ranges
         td_score_segment = self.tree.total_td_score / self.batch_size  # priority segment
 
-        # Calculating the max_weight
-        p_min = np.min(self.tree.tree[-self.buffer_size:]) / self.tree.total_td_score
-        if p_min == 0:
-            p_min = self.td_eps # avoid div by zero
-        max_weight = (p_min * self.buffer_size) ** (-p_replay_beta)
-
-        for i in range(n):
+        i = 0 #use while loop
+        while i < self.batch_size:
             """
             A value is uniformly sample from each range
             """
@@ -484,9 +507,10 @@ class ReplayBuffer:
 
             #P(j)
             sampling_p = td_score / self.tree.total_td_score
+            sampled_td_score[i,0] = td_score
 
             #  IS = (1/N * 1/P(i))**b /max wi == (N*P(i))**-b  /max wi
-            weight[i, 0] = np.power(self.batch_size * sampling_p, -p_replay_beta)/ max_weight
+            weight[i,0] = (1/self.buffer_size * 1/sampling_p)**p_replay_beta
 
             sample_ind[i]= leaf_index
 
@@ -496,6 +520,13 @@ class ReplayBuffer:
             e_n.append(data.next_state)
             e_d.append(data.done)
 
+            i += 1 # increment
+
+        # apply max weigth adjustment
+        weight = weight/np.max(weight)
+
+        #assert(np.mean(sampled_td_score) >= np.mean(self.tree.tree[-self.buffer_size:]))
+
         states = torch.from_numpy(np.vstack(e_s)).float().to(device)
         actions = torch.from_numpy(np.vstack(e_a)).long().to(device)
         rewards = torch.from_numpy(np.vstack(e_r)).float().to(device)
@@ -503,6 +534,7 @@ class ReplayBuffer:
         dones = torch.from_numpy(np.vstack(e_d).astype(np.uint8)).float().to(device)
 
         weight = torch.from_numpy(weight).float().to(device) #change form
+        assert(weight.requires_grad == False)
 
         return (states, actions, rewards, next_states, dones), weight, sample_ind
 
