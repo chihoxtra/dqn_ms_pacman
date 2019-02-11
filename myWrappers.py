@@ -11,7 +11,7 @@ class StackEnv():
     """ Virtual Wrapper """
 
     def __init__(self, env, input_shape=(84,84), action_space=5, depth=4,
-                 skipframes=4, mergeframes=4):
+                 skipframes=4, mergeframes=4, cropframe=True, initial_skipframe=50):
 
         self.env = env #the parent class of env
         self.input_shape = input_shape #dimension of the output
@@ -19,6 +19,7 @@ class StackEnv():
         self.depth = depth #how many frames per stack
         self.max_skipframes = skipframes #how many frame to skip
         self.mergeframes = mergeframes
+        self.cropframe = cropframe
         self.life_count = -1 #storing game info like lives
         self.lostlife_reward = -50 #if die
         self.initial_skipframe = 50 #skip initial idle frames
@@ -47,7 +48,8 @@ class StackEnv():
 
     def encode_state(self, s):
         s = self.transform_step1(s)
-        s = transforms.functional.crop(s, 0, 0, 174, 160) #this is step 2
+        if self.cropframe:
+            s = transforms.functional.crop(s, 0, 0, 174, 160) #this is step 2
         s = self.transform_step3(s)
         return s
 

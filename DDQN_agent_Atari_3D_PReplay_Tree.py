@@ -22,27 +22,29 @@ This version is relatively more stable:
 """
 
 BUFFER_SIZE = int(1e5)        # replay buffer size
-BATCH_SIZE = 64               # minibatch size
+BATCH_SIZE = 32               # minibatch size
 REPLAY_MIN_SIZE = int(1e5)    # min len of memory before replay start #int(5e3)
-GAMMA = 0.95                  # discount factor
-TAU = 1e-3                    # for soft update of target parameters
+GAMMA = 0.999                 # discount factor
+TAU = 1e-2                    # for soft update of target parameters
 LR = 1e-5                     # learning rate #25e4
-LR_DECAY = True               # decay learning rate?
+LR_DECAY = False              # decay learning rate?
 LR_DECAY_START = int(4e5)     # number of steps before lr decay starts
 LR_DECAY_STEP = int(5e3)      # LR decay steps
-LR_DECAY_GAMMA = 0.999        # LR decay gamma
-UPDATE_EVERY = int(1e3)       # how often to update the network
+LR_DECAY_GAMMA = 0.99         # LR decay gamma
+UPDATE_EVERY = int(1e4)       # how often to update the network
 TD_ERROR_EPS = 1e-3           # make sure TD error is not zero
-P_REPLAY_ALPHA = 0.7          # balance between prioritized and random sampling #0.7
-P_REPLAY_BETA = 0.5           # adjustment on weight update #0.5
-P_BETA_DELTA = 1e-6           # beta increment per sampling
-#LEARNING_LOOP = 2            # number of learning cycle per step
+P_REPLAY_ALPHA = 0.6          # balance between prioritized and random sampling #0.7
+P_REPLAY_BETA = 0.3           # adjustment on weight update #0.5
+P_BETA_DELTA = 2e-6           # beta increment per sampling
+#LEARNING_LOOP = 0            # number of learning cycle per step
 USE_DUEL = True               # use duel network? V and A?
 USE_DOUBLE = True             # use double network to select TD value?
-REWARD_SCALE = False          # use reward clipping?
+REWARD_SCALE = True           # use reward clipping?
 ERROR_CLIP = True             # clip error
 ERROR_MAX = 1.0               # max value of error if do clipping
 ERROR_INIT = True             # set an init value for error
+USE_HUBER_LOSE = True         # use huber loss clipping
+GRAD_CLIP = True              # use gradient clipping?
 USE_TREE = True               # use tree for memory
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -68,7 +70,9 @@ class Agent():
         self.p_replay_alpha = P_REPLAY_ALPHA
         self.p_replay_beta = P_REPLAY_BETA
         self.reward_scale = REWARD_SCALE
+        self.use_huber_lose = USE_HUBER_LOSE
         self.error_clip = ERROR_CLIP
+        self.grad_clip = GRAD_CLIP
 
         # Q-Network
         self.qnetwork_local = QNetwork(state_size, action_size, seed, USE_DUEL).to(device)
@@ -83,12 +87,14 @@ class Agent():
         # Replay memory
         self.memory = ReplayBuffer(BUFFER_SIZE, BATCH_SIZE, TD_ERROR_EPS, seed,
                                    P_REPLAY_ALPHA, REWARD_SCALE, ERROR_CLIP,
-                                   ERROR_MAX, ERROR_INIT, USE_TREE)
+                                   ERROR_MAX, ERROR_INIT, USE_TREE, ERROR_INIT)
 
         # Initialize time step (for updating every UPDATE_EVERY steps and others)
         self.t_step = 0
         # keep track on whether training has started
         self.isTraining = False
+        # keep track of Q value
+        self.Q_history = deque(maxlen=10000)
 
         self.print_params()
 
@@ -98,12 +104,17 @@ class Agent():
         print("use double network: {}".format(USE_DOUBLE))
         print("use reward scaling: {}".format(REWARD_SCALE))
         print("use error clipping: {}".format(ERROR_CLIP))
+        print("use grad clipping: {}".format(GRAD_CLIP))
+        print("use Tree Sum: {}".format(USE_TREE))
+
         print("buffer size: {}".format(BUFFER_SIZE))
         print("batch size: {}".format(BATCH_SIZE))
+        print("Gamma: {}".format(GAMMA))
         print("initial learning rate: {}".format(LR))
         print("learing rate decay: {}".format(LR_DECAY))
         print("min replay size: {}".format(REPLAY_MIN_SIZE))
         print("target network update: {}".format(UPDATE_EVERY))
+
         print("optimizer: {}".format(self.optimizer))
 
     def get_TD_values(self, local_net, target_net, s, a, r, ns, d, isLearning=False):
@@ -146,6 +157,9 @@ class Agent():
             td_currents_vals = local_net(s)
 
             td_currents = torch.gather(td_currents_vals, 1, a)
+
+            # keep track of Q value
+            self.Q_history.append(torch.mean(td_currents))
         else:
             local_net.eval()
             with torch.no_grad():
@@ -199,7 +213,6 @@ class Agent():
                 print("Prefetch completed. Training starts!                         \r")
                 self.isTraining = True
 
-            #for i in range(LEARNING_LOOP): #greedy learning loop
             if USE_TREE:
                 experiences, weight, ind = self.memory.sample_tree(self.p_replay_beta)
             else:
@@ -233,10 +246,12 @@ class Agent():
             action = random.choice(np.arange(self.action_size))
         return action
 
-    def huber_loss(self, td_currents, td_targets, grad_clip_max=1):
-        abs_err = torch.abs(td_currents - td_targets)**2
-        clipped_err = torch.clamp(abs_err, min=0, max=grad_clip_max)
-        return 0.5 * clipped_err**2 + grad_clip_max * (abs_err - clipped_err)
+    def huber_loss(self, squared_err, grad_clip_max=ERROR_MAX):
+        clipped_err = torch.clamp(squared_err, min=0, max=grad_clip_max)
+        return 0.5 * clipped_err**2 + grad_clip_max * (squared_err - clipped_err)
+
+    def batchnorm(self, td_err):
+        return (td_err - torch.mean(td_err))/torch.std(td_err)
 
     def learn(self, experiences, weight, ind, gamma):
         """Update value parameters using given batch of experience tuples.
@@ -257,11 +272,14 @@ class Agent():
                                                      dones,
                                                      isLearning=True)
 
-        #squared_err = torch.abs(td_currents - td_targets)**2
-        #print(weight.mean(), squared_err.mean())
-        clipped_loss = self.huber_loss(td_currents, td_targets)
-        #print(weight.mean(), clipped_loss.mean())
-        loss = weight * clipped_loss
+        squared_err = torch.abs(td_currents - td_targets)**2
+        # gradient clipping
+        if self.use_huber_lose:
+            loss = weight * self.huber_loss(squared_err)
+            # note that after weight adj, loss can still be greater than 1
+        else:
+            loss = weight * squared_err
+
         loss = loss.mean()
 
         if self.lr_decay and self.t_step >= LR_DECAY_START:
@@ -269,6 +287,10 @@ class Agent():
 
         self.optimizer.zero_grad()
         loss.backward()
+
+        # gradient clip
+        if self.grad_clip:
+            torch.nn.utils.clip_grad_norm_(self.qnetwork_local.parameters(), ERROR_MAX)
         # update the parameters
         self.optimizer.step()
 
@@ -291,13 +313,16 @@ class Agent():
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
+    def getQAverage(self):
+        return sum(self.Q_history)/len(self.Q_history)
+
 
 class ReplayBuffer:
     """Fixed-size buffer to store experience tuples."""
 
     def __init__(self, buffer_size, batch_size, td_eps, seed,
                  p_replay_alpha, reward_scale=False, error_clip=False,
-                 error_max=1.0, error_init=False, use_tree=False):
+                 error_max=1.0, error_init=False, use_tree=False, err_init=1.0):
         """Initialize a ReplayBuffer object.
 
         Params
@@ -378,7 +403,7 @@ class ReplayBuffer:
 
         #error clipping
         if self.error_clip: #error clipping
-            td_updated = np.clip(td_updated, -1.0, 1.0)
+            td_updated = np.clip(td_updated, -ERROR_MAX, ERROR_MAX)
 
         # apply alpha power
         td_updated = (td_updated ** self.p_replay_alpha) + self.td_eps
@@ -512,7 +537,7 @@ class ReplayBuffer:
             #  IS = (1/N * 1/P(i))**b /max wi == (N*P(i))**-b  /max wi
             weight[i,0] = (1/self.buffer_size * 1/sampling_p)**p_replay_beta
 
-            sample_ind[i]= leaf_index
+            sample_ind[i] = leaf_index
 
             e_s.append(data.state)
             e_a.append(data.action)
@@ -522,8 +547,16 @@ class ReplayBuffer:
 
             i += 1 # increment
 
+        # Calculating the max_weight
+        """
+        p_min = np.min(self.tree.tree[-self.buffer_size:]) / self.tree.total_td_score
+        if p_min == 0:
+            p_min = self.td_eps # avoid div by zero
+        max_weight = (1/p_min * 1/self.buffer_size) ** (p_replay_beta)
+        """
         # apply max weigth adjustment
-        weight = weight/np.max(weight)
+        max_weight = np.max(weight)
+        weight = weight/max_weight
 
         #assert(np.mean(sampled_td_score) >= np.mean(self.tree.tree[-self.buffer_size:]))
 
