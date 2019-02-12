@@ -26,7 +26,7 @@ BATCH_SIZE = 32               # minibatch size
 REPLAY_MIN_SIZE = int(1e5)    # min len of memory before replay start #int(5e3)
 GAMMA = 0.999                 # discount factor
 TAU = 1e-2                    # for soft update of target parameters
-LR = 1e-5                     # learning rate #25e4
+LR = 8e-6                     # learning rate #25e4
 LR_DECAY = False              # decay learning rate?
 LR_DECAY_START = int(4e5)     # number of steps before lr decay starts
 LR_DECAY_STEP = int(5e3)      # LR decay steps
@@ -35,7 +35,7 @@ UPDATE_EVERY = int(1e4)       # how often to update the network
 TD_ERROR_EPS = 1e-3           # make sure TD error is not zero
 P_REPLAY_ALPHA = 0.6          # balance between prioritized and random sampling #0.7
 P_REPLAY_BETA = 0.3           # adjustment on weight update #0.5
-P_BETA_DELTA = 2e-6           # beta increment per sampling
+P_BETA_DELTA = 1e-6           # beta increment per sampling
 #LEARNING_LOOP = 0            # number of learning cycle per step
 USE_DUEL = True               # use duel network? V and A?
 USE_DOUBLE = True             # use double network to select TD value?
@@ -175,7 +175,7 @@ class Agent():
     def step(self, state, action, reward, next_state, done, ep_prgs=(0,100)):
         """ handle memory update, learning and target network params update"""
         """
-        epoche_status: destinated final epoche - current epoche
+        ep_prgs: destinated final epoche - current epoche
         """
         # internal rourtine
         def toBatchDim(v):
@@ -457,8 +457,6 @@ class ReplayBuffer:
         # get sample of index from the p distribution
         sample_ind = np.random.choice(l, self.batch_size, p=p_dist)
 
-        experiences = [] #faster to avoid indexing
-
         ### checking: make sure the rotation didnt screw up the memory ###
         #tmp_memory = copy.deepcopy(self.memory) #checking
 
@@ -472,7 +470,6 @@ class ReplayBuffer:
             er.append(e.reward)
             en.append(e.next_state)
             ed.append(e.done)
-            experiences.append(copy.deepcopy(self.memory[0]))
             self.memory.rotate(i)
 
         ### checking: make sure the rotation didnt screw up the memory ###
